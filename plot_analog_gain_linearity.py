@@ -4,6 +4,20 @@ import numpy as np
 import argparse
 from scipy.optimize import curve_fit
 
+C_to_e=6.2415e18
+mV_to_V=1e-3
+
+def v2b_factor(): #v2b cob voltage_divider_circuit
+    return (49.9+2.49)/(49.9+2.49+47.5)
+
+def v2b_ctotal(channel): # 2.0 pF at each channel in parallel
+    circuit_chan =  [[10,14,20,22],
+                     [24,27,30,33,36,39],
+                     [55,52,48,44,41],
+                     [5,4,1,62,59,57]]
+    for cc in circuit_chan:
+        for chan in cc:
+            if chan==channel: return len(cc)*2e-12
 
 def gauss(x, A, mu, sigma):
     return A*np.exp(-(x-mu)**2/(2*sigma**2))
@@ -21,11 +35,19 @@ def plot_injected_baseline(d, channels):
     std_bins=np.linspace(0,10,21)
     fig, ax = plt.subplots(1,3,figsize=(15,6))
     for i in range(len(channels)):
-        ax[0].hist([d[k]['inj_base_mu'] for k in d.keys() if d[k]['channel']==channels[i]], bins=mu_bins, histtype='step', label='Channel '+channels[i])
-        ax[1].hist([d[k]['inj_base_sigma'] for k in d.keys() if d[k]['channel']==channels[i]], bins=std_bins, histtype='step', label='Channel '+channels[i])
-        ax[2].scatter([d[k]['inj_base_mu'] for k in d.keys() if d[k]['channel']==channels[i]],\
-                       [d[k]['inj_base_sigma'] for k in d.keys() if d[k]['channel']==channels[i]], label='Channel '+channels[i])
-
+        ax[0].hist([d[k]['inj_base_mu'] for k in d.keys() \
+                    if d[k]['channel']==channels[i]], \
+                   bins=mu_bins, histtype='step', \
+                   label='Channel '+channels[i])
+        ax[1].hist([d[k]['inj_base_sigma'] for k in d.keys() \
+                    if d[k]['channel']==channels[i]], \
+                   bins=std_bins, histtype='step', \
+                   label='Channel '+channels[i])
+        ax[2].scatter([d[k]['inj_base_mu'] for k in d.keys() \
+                       if d[k]['channel']==channels[i]],\
+                       [d[k]['inj_base_sigma'] for k in d.keys() \
+                        if d[k]['channel']==channels[i]], \
+                      label='Channel '+channels[i])
     for i in range(3):
         ax[i].legend()
         ax[i].grid(True)
@@ -42,11 +64,19 @@ def plot_response_baseline(d, channels):
     std_bins=np.linspace(0,20,41)
     fig, ax = plt.subplots(1,3,figsize=(15,6))
     for i in range(len(channels)):
-        ax[0].hist([d[k]['resp_base_mu'] for k in d.keys() if d[k]['channel']==channels[i]], bins=mu_bins, histtype='step', label='Channel '+channels[i])
-        ax[1].hist([d[k]['resp_base_sigma'] for k in d.keys() if d[k]['channel']==channels[i]], bins=std_bins, histtype='step', label='Channel '+channels[i])
-        ax[2].scatter([d[k]['resp_base_mu'] for k in d.keys() if d[k]['channel']==channels[i]],\
-                       [d[k]['resp_base_sigma'] for k in d.keys() if d[k]['channel']==channels[i]], label='Channel '+channels[i])
-
+        ax[0].hist([d[k]['resp_base_mu'] for k in d.keys() \
+                    if d[k]['channel']==channels[i]], \
+                   bins=mu_bins, histtype='step', \
+                   label='Channel '+channels[i])
+        ax[1].hist([d[k]['resp_base_sigma'] for k in d.keys() \
+                    if d[k]['channel']==channels[i]], \
+                   bins=std_bins, histtype='step', \
+                   label='Channel '+channels[i])
+        ax[2].scatter([d[k]['resp_base_mu'] for k in d.keys() \
+                       if d[k]['channel']==channels[i]],\
+                       [d[k]['resp_base_sigma'] for k in d.keys() \
+                        if d[k]['channel']==channels[i]], \
+                      label='Channel '+channels[i])
     for i in range(3):
         ax[i].legend()
         ax[i].grid(True)
@@ -71,7 +101,6 @@ def plot_injected_versus_response(d, channels):
                    [d[k]['resp']-d[k]['resp_base_mu'] for k in d.keys() \
                     if d[k]['channel']==channels[i] and d[k]['gain']=='4'], 
                    label='Channel '+channels[i])
-
     for i in range(2):
         ax[i].set_xlabel('Injected Signal [mV]')
         ax[i].set_ylabel('Channel Front-End Response [mV]')
@@ -98,18 +127,30 @@ def find_injected_signal_per_channel(d, channels):
     
 def fit_individual_input(d, channels):
     output={}
-    ctr_dict={0:(0,0,np.linspace(20,50,21),np.linspace(60,90,21),20,50,21,60,90,21),
-              1:(0,1,np.linspace(60,90,21),np.linspace(125,155,21),60,90,21,125,155,21),
-              2:(0,2,np.linspace(270,300,21),np.linspace(255,285,21),270,300,21,255,285,21),
-              3:(1,0,np.linspace(540,610,21),np.linspace(520,570,21),540,610,21,520,570,21),
-              4:(1,1,np.linspace(1040,1130,21),np.linspace(980,1100,21),1040,1130,21,980,1100,21),
-              5:(1,2,np.linspace(1080,1200,21),np.linspace(1040,1160,21),1080,1200,21,1040,1160,21)}
-    inj_dict={0:(np.linspace(-30,-20,21),np.linspace(-30,-20,21),-30,-20,21,-30,-20,21),
-              1:(np.linspace(-55,-45,21),np.linspace(-55,-45,21),-55,-45,21,-55,-45,21),
-              2:(np.linspace(-220,-200,21),np.linspace(-110,-90,21),-220,-200,21,-110,-90,21),
-              3:(np.linspace(-440,-400,21),np.linspace(-230,-190,40),-440,-400,21,-230,-190,21),
-              4:(np.linspace(-840,-800,21),np.linspace(-430,-400,21),-840,-800,21,-430,-400,21),
-              5:(np.linspace(-950,-900,21),np.linspace(-480,-450,21),-950,-900,21,-480,-450,21)}
+    ctr_dict={0:(0,0,np.linspace(20,50,21),np.linspace(60,90,21),\
+                 20,50,21,60,90,21),
+              1:(0,1,np.linspace(60,90,21),np.linspace(125,155,21),\
+                 60,90,21,125,155,21),
+              2:(0,2,np.linspace(270,300,21),np.linspace(255,285,21),\
+                 270,300,21,255,285,21),
+              3:(1,0,np.linspace(540,610,21),np.linspace(520,570,21),\
+                 540,610,21,520,570,21),
+              4:(1,1,np.linspace(1040,1130,21),np.linspace(980,1100,21),\
+                 1040,1130,21,980,1100,21),
+              5:(1,2,np.linspace(1080,1200,21),np.linspace(1040,1160,21),\
+                 1080,1200,21,1040,1160,21)}
+    inj_dict={0:(np.linspace(-30,-20,21),np.linspace(-30,-20,21),\
+                 -30,-20,21,-30,-20,21),
+              1:(np.linspace(-55,-45,21),np.linspace(-55,-45,21),\
+                 -55,-45,21,-55,-45,21),
+              2:(np.linspace(-220,-200,21),np.linspace(-110,-90,21),\
+                 -220,-200,21,-110,-90,21),
+              3:(np.linspace(-440,-400,21),np.linspace(-230,-190,40),\
+                 -440,-400,21,-230,-190,21),
+              4:(np.linspace(-840,-800,21),np.linspace(-430,-400,21),\
+                 -840,-800,21,-430,-400,21),
+              5:(np.linspace(-950,-900,21),np.linspace(-480,-450,21),\
+                 -950,-900,21,-480,-450,21)}
     ch_gain = find_injected_signal_per_channel(d, channels)
     fig0, ax0 = plt.subplots(2,3,figsize=(18,12))
     fig1, ax1 = plt.subplots(2,3,figsize=(18,12))
@@ -126,12 +167,21 @@ def fit_individual_input(d, channels):
                 if d[k]['channel']==cg[0] and d[k]['gain']==cg[1] \
                 and d[k]['inj_func_gen']==str(inj)]
             if cg[1]=='2':
-                hist, bin_edges = np.histogram(x, bins=21, range=(ctr_dict[ctr][4], ctr_dict[ctr][5]))
+                hist, bin_edges = np.histogram(x, bins=21, \
+                                               range=(ctr_dict[ctr][4], \
+                                                      ctr_dict[ctr][5]))
                 params, cov = curve_fit(gauss, bin_edges[:-1], hist, \
-                                        p0=[max(hist), np.mean(ctr_dict[ctr][2]), np.std(ctr_dict[ctr][2])])
+                                        p0=[max(hist), \
+                                            np.mean(ctr_dict[ctr][2]), \
+                                            np.std(ctr_dict[ctr][2])])
                 ax0[ctr_dict[ctr][0]][ctr_dict[ctr][1]].plot(bin_edges[:-1], \
-                                                             gauss(bin_edges[:-1], *params), \
-                                                             '-', label=r'Fit channel {} $\mu$={:.1f}$\pm${:.1f} $\sigma$={:.1f}$\pm${:.1f}'.format(cg[0], params[1], np.sqrt(cov[1][1]),params[2],np.sqrt(cov[2][2])))
+                                                             gauss(bin_edges[:-1], \
+                                                                   *params), \
+                                                             '-', \
+                                                             label=r'Fit channel {} $\mu$={:.1f}$\pm${:.1f} $\sigma$={:.1f}$\pm${:.1f}'.format(cg[0], params[1], \
+                                                                                                                                               np.sqrt(cov[1][1]),\
+                                                                                                                                               params[2],\
+                                                                                                                                               np.sqrt(cov[2][2])))
                 resp_mu=params[1]; resp_mu_error=np.sqrt(cov[1][1])
                 ax0[ctr_dict[ctr][0]][ctr_dict[ctr][1]].hist(x,
                                                              bins=ctr_dict[ctr][2],
@@ -209,44 +259,72 @@ def fit_individual_input(d, channels):
 
 def plot_linear_fit(fs):
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(12,6))
-    #fig1, ax1 = plt.subplots(nrows=1, ncols=2, figsize=(12,6))
-    #fig2, ax2 = plt.subplots(nrows=1, ncols=2, figsize=(12,6))
+    fig1, ax1 = plt.subplots(nrows=1, ncols=2, figsize=(12,6))
+    fig2, ax2 = plt.subplots(nrows=1, ncols=2, figsize=(12,6))
     fig3, ax3 = plt.subplots(nrows=1, ncols=2, figsize=(12,6))
     channels=set([k[0] for k in fs.keys()])
     gains=set([k[1] for k in fs.keys()])
     for ch in channels:
         for g in gains:
             x = [fs[k][2] for k in fs.keys() if k[0]==ch and k[1]==g]
-            x_electrons = [fs[k][2] for k in fs.keys() if k[0]==ch and k[1]==g]
             x_err = [fs[k][3] for k in fs.keys() if k[0]==ch and k[1]==g]
+            #scale=v2b_factor()*v2b_ctotal(int(ch))*C_to_e#*mV_to_V
+            scale=v2b_factor()*2e-12*C_to_e#*mV_to_V
+            x_electrons = [fs[k][2]*-1*scale for k in fs.keys() \
+                           if k[0]==ch and k[1]==g]
+            x_electrons_err = [fs[k][3]*scale for k in fs.keys() \
+                               if k[0]==ch and k[1]==g]
+
             y = [fs[k][0] for k in fs.keys() if k[0]==ch and k[1]==g]
             y_err = [fs[k][1] for k in fs.keys() if k[0]==ch and k[1]==g]
             if g=='2':
-                ax[0].errorbar(x, y, yerr=y_err, xerr=x_err, linestyle="", label='Channel '+ch)
+                ax[0].errorbar(x, y, yerr=y_err, xerr=x_err, linestyle="", \
+                               label='Channel '+ch)
                 coef=np.polyfit(x,y,1)
                 poly1d_fn = np.poly1d(coef)
-                ax[0].plot(x, poly1d_fn(x), '--', label='Channel {} slope={:.2f} y-intercept={:.2f}'.format(ch, coef[0], coef[1]))
-                #ax1[0].plot(range(len(x_err)), x_err, label='Channel '+ch)
-                #ax2[0].plot(range(len(y_err)), y_err, label='Channel '+ch)
+                ax[0].plot(x, poly1d_fn(x), '--', \
+                           label='Channel {} slope={:.2f} y-intercept={:.2f}'.format(ch, coef[0], coef[1]))
+                ax1[0].plot(range(len(x_err)), x_err, label='Channel '+ch)
+                ax2[0].plot(range(len(y_err)), y_err, label='Channel '+ch)
+                ax3[0].errorbar(x_electrons, y, yerr=y_err, \
+                               xerr=x_electrons_err, linestyle="", \
+                                label='Channel '+ch)
             if g=='4':
-                ax[1].errorbar(x, y, yerr=y_err, xerr=x_err, linestyle="", label='Channel '+ch)
+                ax[1].errorbar(x, y, yerr=y_err, xerr=x_err, linestyle="", \
+                               label='Channel '+ch)
                 coef=np.polyfit(x,y,1)
                 poly1d_fn = np.poly1d(coef)
-                ax[1].plot(x, poly1d_fn(x), '--', label='Channel {} slope={:.2f} y-intercept={:.2f}'.format(ch, coef[0], coef[1]))
-                #ax1[1].plot(range(len(x_err)), x_err, label='Channel '+ch)
-                #ax2[1].plot(range(len(y_err)), y_err, label='Channel '+ch)                            
+                ax[1].plot(x, poly1d_fn(x), '--', \
+                           label='Channel {} slope={:.2f} y-intercept={:.2f}'.format(ch, coef[0], coef[1]))
+                ax1[1].plot(range(len(x_err)), x_err, label='Channel '+ch)
+                ax2[1].plot(range(len(y_err)), y_err, label='Channel '+ch)
+                ax3[1].errorbar(x_electrons, y, yerr=y_err, \
+                               xerr=x_electrons_err, linestyle="", \
+                                label='Channel '+ch)
     for i in range(2):
         if i==0:
             ax[0].set_title(r'2 $\mu$V/e$^-$ Configured Gain')
+            ax1[0].set_title(r'2 $\mu$V/e$^-$ Configured Gain')
+            ax2[0].set_title(r'2 $\mu$V/e$^-$ Configured Gain')
             ax3[0].set_title(r'2 $\mu$V/e$^-$ Configured Gain')
         if i==1:
             ax[1].set_title(r'4 $\mu$V/e$^-$ configured Gain')
+            ax1[1].set_title(r'4 $\mu$V/e$^-$ configured Gain')
+            ax2[1].set_title(r'4 $\mu$V/e$^-$ configured Gain')
             ax3[1].set_title(r'4 $\mu$V/e$^-$ configured Gain')
         ax[i].set_xlabel('Input Signal [mV]')
         ax[i].set_ylabel('Analog Response [mV]')
         ax[i].grid(True)
         ax[i].legend()
-        ax3[i].set_xlabel(r'External Test Pulse [ke$^-$]')
+        ax1[i].set_xlabel('Index')
+        ax1[i].set_ylabel('Input Signal Fitted Error [mV]')
+        ax1[i].grid(True)
+        ax1[i].legend()
+        ax2[i].set_xlabel('Index')
+        ax2[i].set_ylabel('Channel Analog Response Fitted Error [mV]')
+        ax2[i].grid(True)
+        ax2[i].legend()
+        ax3[i].set_xlabel(r'External Test Pulse [e$^-$]')
         ax3[i].set_ylabel('Channel Analog Response [mV]')
         ax3[i].grid(True)
 #        ax3[i].legend()
