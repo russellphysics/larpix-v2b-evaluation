@@ -2,6 +2,7 @@ import numpy as np
 import csv
 import glob
 
+
 def unique_channel_id(io_group, io_channel, chip_id, channel_id):
     return channel_id + 100*(chip_id + 1000*(io_channel + 1000*(io_group)))
 
@@ -16,6 +17,16 @@ def unique_2_io_channel(unique): return (unique//(100*1000)) % 1000
 
 
 def unique_2_io_group(unique): return (unique//(100*1000*1000)) % 1000
+
+
+
+def basic_parsing(f):
+    parity_mask=f['packets'][:]['valid_parity']==1
+    data_mask=f['packets'][:]['packet_type']==0
+    mask = np.logical_and(parity_mask, data_mask)
+    return f['packets'][mask]
+    
+
 
 
 def err_bootstrap(data, statistic):
